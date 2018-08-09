@@ -35,7 +35,29 @@ private native static int diff(String oldFile, String newFile, String patchFile)
 ![](https://upload-images.jianshu.io/upload_images/2587882-0c7231d8412fac1f.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/700)
 
 
-找到bsdiff.cpp的文件，由于里面有main函数，我们不需要，把他改名成bsdiff_main，然后在末尾添加JNIEXPORT jint JNICALL Java_app_1update_1service_ServiceDiff_diff(JNIEnv *env, jclass cls, jstring oldFile_jstr, jstring newFile_jstr, jstring patchFile_jstr)函数来实现，具体实现看代码。只是调用拆分的方法。
+找到bsdiff.cpp的文件，由于里面有main函数，我们不需要，把他改名成bsdiff_main，然后我们自己写一个动态库的对外接口函数去调用bsdiff_main生成拆分包，代码如下：
+```
+JNIEXPORT jint JNICALL Java_app_1update_1service_ServiceDiff_diff(JNIEnv *env, jclass cls, jstring oldFile_jstr, jstring newFile_jstr, jstring patchFile_jstr) {
+	const char* oldFile = (char*)env->GetStringUTFChars(oldFile_jstr, NULL);
+	const char* newFile = (char*)env->GetStringUTFChars(newFile_jstr, NULL);
+	const char* patchFile = (char*)env->GetStringUTFChars(patchFile_jstr, NULL);
+
+	int argc = 4;
+	char *argv[4];
+	argv[0] = "bsdiff";
+	argv[1] = (char*)oldFile;
+	argv[2] = (char*)newFile;
+	argv[3] = (char*)patchFile;
+
+	int result = bsdiff_main(argc, argv);
+
+	env->ReleaseStringUTFChars(oldFile_jstr, oldFile);
+	env->ReleaseStringUTFChars(newFile_jstr, newFile);
+	env->ReleaseStringUTFChars(patchFile_jstr, patchFile);
+
+	return result;
+}
+```
 
 ## 4.eclpise调用dll动态库
 
@@ -58,3 +80,24 @@ private native static int diff(String oldFile, String newFile, String patchFile)
 网上下载了微信的6.0版本和6.6版本的apk包，进行拆分，拆分后生成weixin.patch，拆分是异步的，比较慢，等待一段时间，发现生成了weixin.patch，拆分成功。如图，大概节省了7M的流量
 
 ![](https://upload-images.jianshu.io/upload_images/2587882-24753c3995d14c26.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/631)
+
+```
+public class ServiceDiff {
+	
+	private native static int diff(String oldFile, String newFile, String patchFile);
+	
+	public static void main(String[] args) {
+		int result = diff("F:\\java-project\\app_update_service\\src\\weixin_v6.0.apk", 
+				"F:\\java-project\\app_update_service\\src\\weixin_1080.apk", 
+				"F:\\java-project\\app_update_service\\src\\weixin.patch");
+		System.out.print(result);
+	}
+	
+	static {
+		System.loadLibrary("bsdiff");
+	}
+}
+```
+由于微信的apk过大，就不放在github上了，需要的朋友自己百度去下载吧。
+
+## 6.客户端部分
