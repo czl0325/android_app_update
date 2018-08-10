@@ -4,7 +4,7 @@
 
 ## 1.下载bsdiff库
 
-首先增量更新用到了开源的bsdiff库，先到官网下载，地址是http://www.daemonology.net/bsdiff/  。但是目前官网上的window port连接失效了，不知道原因，我只能百度去下载 bsdiff4.3-win32-src.zip。
+首先增量更新用到了开源的bsdiff库，先到官网下载，地址是http://www.daemonology.net/bsdiff/  。但是目前官网上的window port连接失效了，不知道原因，我只能百度去下载 bsdiff4.3-win32-src.zip。 bsdiff这个库是依赖于bzip的，所以还要去bzip的官网下载。 www.bzip.org
 
 ## 2.新建一个vs2017的空项目，名字叫bsdiff，拆分安装包的工程。把工程里的.h和.c文件分别导入进去。
 
@@ -100,4 +100,23 @@ public class ServiceDiff {
 ```
 由于微信的apk过大，就不放在github上了，需要的朋友自己百度去下载吧。
 
-## 6.客户端部分
+## 6.客户端部分：android studio 3.1.3 新建一个工程
+
+随便取名，叫app_update_client，然后要勾选include c/c++ support，在MainActivity里面加入函数
+public native static int patch(String oldFile, String newFile, String patchFile);
+
+在左侧cpp中引入zip2的文件夹，放进去后编译有大量的错误，都是一些类型需要强转什么的，我已经全部修改好了。
+
+![](https://upload-images.jianshu.io/upload_images/2587882-3ba52fa79651ca87.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/314)
+
+然后在native-lib.cpp中加入patch函数的实现，同理就是调用了bspatch.c里面写好的东西，具体可以看我上传的源代码。
+
+接下来就是模拟下载更新包，然后与旧的apk包合并生成新的apk包，生成后直接安装即可。
+
+在此遇到的问题有：
+
+    1. github上的bspatch是不能用的，必须到官网上去下载
+
+    2. 用android studio在native-lib上自动生成的native函数，第二个参数是jclass， 会导致识别不到，改成jobject就可以了。
+
+    3. 我测试是直接将.patch文件和.apk的文件拷贝到手机里面进行合成的，合成的文件必须生成在自己的包里面，其他地方不能生成。
